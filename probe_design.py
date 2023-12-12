@@ -562,7 +562,7 @@ def nominate_top_probe_set(input_csv, output_csv):
     annotated_data.loc[selected_sets_flat].to_csv(output_csv, index=False)
 
 
-def construct_custom_flex_probe_opool(nominated_probe_csv, output_order_name, pool_name_prefix, lhs_r2_adaptor, n_barcodes):
+def construct_custom_flex_probe_opool(nominated_probe_csv, pool_name, lhs_r2_adaptor, n_barcodes, directory = 'opools'):
     """
     Constructs an Excel file containing probe sequences and pool names from a nominated probe CSV file. This xlsx should be able to be uploaded to IDT for ordering.
 
@@ -596,99 +596,31 @@ def construct_custom_flex_probe_opool(nominated_probe_csv, output_order_name, po
         rhs_sequence = row['rhs_sequence']
         
         lhs_seq =  lhs_r2_adaptor + lhs_sequence
-        lhs_pool = pool_name_prefix + "_lhs"
+        lhs_pool = pool_name + "_lhs"
         sequences.append({'Pool name': lhs_pool, 'Sequence': lhs_seq})
 
         for i in range(n_barcodes):
             seq = "/5Phos/" + rhs_sequence + "ACGCGGTTAGCACGTANN" + barcode_sequences[i] + "CGGTCCTAGCAA"
-            pool = barcode_ids[i] + "_" + pool_name_prefix + "_rhs" 
+            pool = barcode_ids[i] + "_" + pool_name + "_rhs" 
             sequences.append({'Pool name': pool, 'Sequence': seq})
     
-    sequences_df = pd.DataFrame(sequences)
-    sequences_df = sequences_df.sort_values(by='Pool name')
-    sequences_df.to_excel(output_order_name, index=False)
+    oligo_pool = pd.DataFrame(sequences)
+    oligo_pool = oligo_pool.sort_values(by='Pool name')
     
+    date_today = datetime.now().strftime("%y%m%d")
+    file_name = f"{date_today}_{pool_name}.xlsx"
 
-def score_plot_probes(lhs, rhs, title):
-    """
-    Calculate metrics and plot histograms for the given left-hand side (LHS) and right-hand side (RHS) sequences.
+    if not os.path.exists(directory):
+        os.makedirs(directory)
 
-    Parameters:
-    - lhs (Pandas Series): Pandas Series containing left-hand side sequences.
-    - rhs (Pandas Series): Pandas Series containing right-hand side sequences.
-    - title (str): Title for the plotted histograms.
+    file_path = os.path.join(directory, file_name)
 
-    This function calculates metrics including Max Homopolymer Length, GC Content, Entropy,
-    and Repetitiveness Scores for both LHS and RHS sequences. It then displays histograms
-    for each metric comparison between LHS and RHS sequences using Seaborn.
-
-    The histograms include:
-    - Distribution of Max Homopolymer Length
-    - Distribution of GC Content
-    - Distribution of Entropy
-    - Distribution of Repetitiveness Score
-
-    Each metric is plotted with transparent bars for better visualization of LHS and RHS
-    distributions on the same axes. The x-axis limits for each histogram are manually set
-    for specific ranges.
-
-    Returns:
-    - None
-
-    Displays the histograms comparing LHS and RHS sequences for the calculated metrics.
-    """
+    with pd.ExcelWriter(file_path) as writer:
+        oligo_pool.to_excel(writer, index=False)
     
-    max_homopolymer_lengths_lhs = lhs.apply(max_homopolymer_length)
-    gc_contents_lhs = lhs.apply(calculate_gc_content)
-    entropies_lhs = lhs.apply(calculate_entropy)
-    repetitiveness_scores_lhs = lhs.apply(score_sequence_repetition)
-    
-    max_homopolymer_lengths_rhs = rhs.apply(max_homopolymer_length)
-    gc_contents_rhs = rhs.apply(calculate_gc_content)
-    entropies_rhs = rhs.apply(calculate_entropy)
-    repetitiveness_scores_rhs = rhs.apply(score_sequence_repetition)
-    
-    sns.set(style="whitegrid")
-    fig, axes = plt.subplots(2, 2, figsize=(12, 8))
+ 
 
-    sns.histplot(max_homopolymer_lengths_lhs, bins=20, ax=axes[0, 0], color='darkorange', edgecolor='black', alpha=0.25, label='LHS')
-    sns.histplot(max_homopolymer_lengths_rhs, bins=20, ax=axes[0, 0], color='cornflowerblue', edgecolor='black', alpha=0.25, label='RHS')
-    axes[0, 0].set_xlabel('Max Homopolymer Length')
-    axes[0, 0].set_ylabel('Frequency')
-    axes[0, 0].set_title('Distribution of Max Homopolymer Length')
-    axes[0, 0].legend()
-    axes[0, 0].set_xlim(0, 6)  
-
-    sns.histplot(gc_contents_lhs, bins=20, ax=axes[0, 1], color='darkorange', edgecolor='black', alpha=0.25, label='LHS')
-    sns.histplot(gc_contents_rhs, bins=20, ax=axes[0, 1], color='cornflowerblue', edgecolor='black', alpha=0.25, label='RHS')
-    axes[0, 1].set_xlabel('GC Content (%)')
-    axes[0, 1].set_ylabel('Frequency')
-    axes[0, 1].set_title('Distribution of GC Content')
-    axes[0, 1].legend()
-    axes[0, 1].set_xlim(0, 100)  
-    
-    sns.histplot(entropies_lhs, bins=20, ax=axes[1, 0], color='darkorange', edgecolor='black', alpha=0.25, label='LHS')
-    sns.histplot(entropies_rhs, bins=20, ax=axes[1, 0], color='cornflowerblue', edgecolor='black', alpha=0.25, label='RHS')
-    axes[1, 0].set_xlabel('Entropy')
-    axes[1, 0].set_ylabel('Frequency')
-    axes[1, 0].set_title('Distribution of Entropy')
-    axes[1, 0].legend()
-    axes[1, 0].set_xlim(0.5, 1)  
-    
-    sns.histplot(repetitiveness_scores_lhs, bins=20, ax=axes[1, 1], color='darkorange', edgecolor='black', alpha=0.25, label='LHS')
-    sns.histplot(repetitiveness_scores_rhs, bins=20, ax=axes[1, 1], color='cornflowerblue', edgecolor='black', alpha=0.25, label='RHS')
-    axes[1, 1].set_xlabel('Repetitiveness Score')
-    axes[1, 1].set_ylabel('Frequency')
-    axes[1, 1].set_title('Distribution of Repetitiveness Score')
-    axes[1, 1].legend()
-    axes[1, 1].set_xlim(0, 250)  
-
-    plt.suptitle(title, fontsize=16)
-    plt.tight_layout()
-    plt.show()
-    
-
-def gene_to_ensembl_wta_filter(gene_names, input_csv = 'reference/Chromium_Human_Transcriptome_Probe_Set_v1.0.1_GRCh38-2020-A.csv'):
+def gene_to_ensembl_wta_filter(gene_names, input_csv = 'references/Chromium_Human_Transcriptome_Probe_Set_v1.0.1_GRCh38-2020-A.csv'):
     """
     Fetches Ensembl IDs for a list of gene names and filters data from a CSV file based on matching Ensembl IDs.
 
@@ -870,3 +802,83 @@ def generate_flex_gene_opool(gene_list, pool_name, n_barcodes, directory = 'opoo
 
     with pd.ExcelWriter(file_path) as writer:
         sequences_df.to_excel(writer, index=False)
+        
+        
+        
+def score_plot_probes(lhs, rhs, title):
+    """
+    Calculate metrics and plot histograms for the given left-hand side (LHS) and right-hand side (RHS) sequences.
+
+    Parameters:
+    - lhs (Pandas Series): Pandas Series containing left-hand side sequences.
+    - rhs (Pandas Series): Pandas Series containing right-hand side sequences.
+    - title (str): Title for the plotted histograms.
+
+    This function calculates metrics including Max Homopolymer Length, GC Content, Entropy,
+    and Repetitiveness Scores for both LHS and RHS sequences. It then displays histograms
+    for each metric comparison between LHS and RHS sequences using Seaborn.
+
+    The histograms include:
+    - Distribution of Max Homopolymer Length
+    - Distribution of GC Content
+    - Distribution of Entropy
+    - Distribution of Repetitiveness Score
+
+    Each metric is plotted with transparent bars for better visualization of LHS and RHS
+    distributions on the same axes. The x-axis limits for each histogram are manually set
+    for specific ranges.
+
+    Returns:
+    - None
+
+    Displays the histograms comparing LHS and RHS sequences for the calculated metrics.
+    """
+    
+    max_homopolymer_lengths_lhs = lhs.apply(max_homopolymer_length)
+    gc_contents_lhs = lhs.apply(calculate_gc_content)
+    entropies_lhs = lhs.apply(calculate_entropy)
+    repetitiveness_scores_lhs = lhs.apply(score_sequence_repetition)
+    
+    max_homopolymer_lengths_rhs = rhs.apply(max_homopolymer_length)
+    gc_contents_rhs = rhs.apply(calculate_gc_content)
+    entropies_rhs = rhs.apply(calculate_entropy)
+    repetitiveness_scores_rhs = rhs.apply(score_sequence_repetition)
+    
+    sns.set(style="whitegrid")
+    fig, axes = plt.subplots(2, 2, figsize=(12, 8))
+
+    sns.histplot(max_homopolymer_lengths_lhs, bins=20, ax=axes[0, 0], color='darkorange', edgecolor='black', alpha=0.25, label='LHS')
+    sns.histplot(max_homopolymer_lengths_rhs, bins=20, ax=axes[0, 0], color='cornflowerblue', edgecolor='black', alpha=0.25, label='RHS')
+    axes[0, 0].set_xlabel('Max Homopolymer Length')
+    axes[0, 0].set_ylabel('Frequency')
+    axes[0, 0].set_title('Distribution of Max Homopolymer Length')
+    axes[0, 0].legend()
+    axes[0, 0].set_xlim(0, 6)  
+
+    sns.histplot(gc_contents_lhs, bins=20, ax=axes[0, 1], color='darkorange', edgecolor='black', alpha=0.25, label='LHS')
+    sns.histplot(gc_contents_rhs, bins=20, ax=axes[0, 1], color='cornflowerblue', edgecolor='black', alpha=0.25, label='RHS')
+    axes[0, 1].set_xlabel('GC Content (%)')
+    axes[0, 1].set_ylabel('Frequency')
+    axes[0, 1].set_title('Distribution of GC Content')
+    axes[0, 1].legend()
+    axes[0, 1].set_xlim(0, 100)  
+    
+    sns.histplot(entropies_lhs, bins=20, ax=axes[1, 0], color='darkorange', edgecolor='black', alpha=0.25, label='LHS')
+    sns.histplot(entropies_rhs, bins=20, ax=axes[1, 0], color='cornflowerblue', edgecolor='black', alpha=0.25, label='RHS')
+    axes[1, 0].set_xlabel('Entropy')
+    axes[1, 0].set_ylabel('Frequency')
+    axes[1, 0].set_title('Distribution of Entropy')
+    axes[1, 0].legend()
+    axes[1, 0].set_xlim(0.5, 1)  
+    
+    sns.histplot(repetitiveness_scores_lhs, bins=20, ax=axes[1, 1], color='darkorange', edgecolor='black', alpha=0.25, label='LHS')
+    sns.histplot(repetitiveness_scores_rhs, bins=20, ax=axes[1, 1], color='cornflowerblue', edgecolor='black', alpha=0.25, label='RHS')
+    axes[1, 1].set_xlabel('Repetitiveness Score')
+    axes[1, 1].set_ylabel('Frequency')
+    axes[1, 1].set_title('Distribution of Repetitiveness Score')
+    axes[1, 1].legend()
+    axes[1, 1].set_xlim(0, 250)  
+
+    plt.suptitle(title, fontsize=16)
+    plt.tight_layout()
+    plt.show()
