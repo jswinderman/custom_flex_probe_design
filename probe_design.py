@@ -702,7 +702,7 @@ def generate_flex_sgrna_opool(a_position_protospacers, b_position_protospacers, 
         ])
 
     rhs_probe_order = pd.DataFrame({
-        'Pool_name': pool_names_rhs,
+        'Pool name': pool_names_rhs,
         'Sequence': sequences_rhs
     })
 
@@ -729,7 +729,7 @@ def generate_flex_sgrna_opool(a_position_protospacers, b_position_protospacers, 
         ])
 
     lhs_probe_order = pd.DataFrame({
-        'Pool_name': pool_names_lhs,
+        'Pool name': pool_names_lhs,
         'Sequence': sequences_lhs
     })
 
