@@ -1,4 +1,5 @@
 import csv
+import hashlib
 import os
 import re
 import requests
@@ -882,3 +883,68 @@ def score_plot_probes(lhs, rhs, title):
     plt.suptitle(title, fontsize=16)
     plt.tight_layout()
     plt.show()
+    
+    
+
+def probe_seq_hash(input_sequence):
+    """
+    Computes a shortened SHA-256 hash of the given input sequence.
+
+    Parameters:
+    - input_sequence (str): The input DNA sequence to be hashed.
+
+    Returns:
+    - str: The first 7 characters of the SHA-256 hash of the input sequence.
+    """
+    sha256_hash = hashlib.sha256(input_sequence.encode()).hexdigest()
+    short_hash = sha256_hash[:7]
+
+    return short_hash
+
+
+def construct_probe_reference(
+    custom_probes,
+    custom_reference,
+    genome_reference="references/Chromium_Human_Transcriptome_Probe_Set_v1.0.1_GRCh38-2020-A.csv",
+):
+    """
+    Constructs a custom probe reference by combining user-defined probes with a genome reference.
+
+    Parameters:
+    - custom_probes (str): Path to a CSV file containing custom probe information, including columns 'target', 'lhs_sequence', and 'rhs_sequence'.
+    - custom_reference (str): Path to the output updated custom reference.
+    - genome_reference (str): Path to the genome reference CSV file (default is provided GRCh38 v1.0.1 reference).
+
+    Returns:
+    - None: The function writes the updated reference to the specified custom_reference file.
+    """
+    custom_probes = pd.read_csv(custom_probes)
+
+    custom_probe_ref = pd.DataFrame(
+        {
+            "gene_id": custom_probes["target"],
+            "probe_seq": custom_probes["lhs_sequence"] + custom_probes["rhs_sequence"],
+            "probe_id": custom_probes["target"]
+            + "|"
+            + custom_probes["target"]
+            + "|"
+            + (custom_probes["lhs_sequence"] + custom_probes["rhs_sequence"]).apply(
+                lambda x: probe_seq_hash(x)
+            ),
+            "included": True,
+            "region": "unspliced",
+        }
+    )
+
+    with open(genome_reference, "r") as f:
+        lines = f.readlines()
+
+    comments = [line.strip() for line in lines if line.startswith("#")]
+    genome_reference = pd.read_csv(genome_reference, comment="#", header=0)
+    updated_reference = pd.concat(
+        [genome_reference, custom_probe_ref], ignore_index=True
+    )
+
+    with open(custom_reference, "w") as f:
+        f.write("\n".join(comments) + "\n")
+        updated_reference.to_csv(f, index=False)
