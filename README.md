@@ -1,1 +1,1 @@
-No hosted under https://github.com/GilbertLabUCSF/CoMPoSE
+Now hosted under https://github.com/GilbertLabUCSF/CoMPoSE
